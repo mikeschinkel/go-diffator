@@ -15,6 +15,18 @@ diff := diffator.DiffWithFormat(value1,value2,"Diff: %s")
 println(diff)
 ```
 
+```go
+d := diffator.New()
+diff := d.Diff(value1, value2)
+println(diff)
+```
+
+```go
+d := diffator.New()
+diff := d.DiffWithFormat(value1,value2,"Diff: %s")
+println(diff)
+```
+
 ## Status
 In active use, but only addresses those data types that the author has needed to address his use-case.  If you would like to use this and you find it generated a panic for an unimplemented type, [pull requests](https://github.com/mikeschinkel/go-diffator/compare) are accepted and appreciated.
 
