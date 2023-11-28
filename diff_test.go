@@ -65,6 +65,20 @@ func TestDiff(t *testing.T) {
 			wantDiff:   "map[string]int{Bar:(2!=20),Baz:(3!=30),Foo:(1!=10),Superman:<missing:expected>,Batman:<missing:actual>,}",
 			wantFailed: true,
 		},
+		{
+			name:       "slice-vs-slice:matching",
+			v1:         []int{1, 2, 3},
+			v2:         []int{1, 2, 3},
+			wantDiff:   "",
+			wantFailed: false,
+		},
+		{
+			name:       "slice-vs-slice:failing",
+			v1:         []int{3, 4, 5},
+			v2:         []int{3, 4, 6, 7},
+			wantDiff:   "[]int{[2](5!=6),[3](<missing>!=7),}",
+			wantFailed: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

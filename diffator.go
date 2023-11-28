@@ -25,7 +25,7 @@ func (d *Diffator) Diff(v1, v2 any) string {
 	)
 }
 
-func (d *Diffator) DiffWithFormat(v1, v2 reflect.Value, format string) string {
+func (d *Diffator) DiffWithFormat(v1, v2 any, format string) string {
 	return d.ReflectValuesDiffWithFormat(
 		reflect.ValueOf(v1),
 		reflect.ValueOf(v2),
@@ -81,9 +81,10 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		if len(diff) > 0 {
 			switch rv1.Kind() {
 			case reflect.Slice:
-				diff = fmt.Sprintf("[]%s", diff)
+				diff = fmt.Sprintf("%s{%s}", rv1.Type().String(), diff)
 			case reflect.Array:
-				diff = fmt.Sprintf("[%d]%s", rv1.Len(), diff)
+				// TODO: Handle mismatches lengths
+				diff = fmt.Sprintf("%s%s", rv1.Type().String(), diff)
 			}
 			sb.WriteString(fmt.Sprintf(format, diff))
 		}
@@ -157,10 +158,18 @@ func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value, format strin
 
 func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value, format string) (diff string) {
 	sb := strings.Builder{}
-	for i := 0; i < rv1.Len(); i++ {
-		diff = d.ReflectValuesDiffWithFormat(rv1.Index(i), rv2.Index(i), "%s")
+	cnt := max(rv1.Len(), rv2.Len())
+	for i := 0; i < cnt; i++ {
+		switch {
+		case i >= rv1.Len():
+			diff = d.DiffWithFormat("<missing>", fmt.Sprintf("%v", rv2.Index(i)), "%s,")
+		case i >= rv2.Len():
+			diff = d.DiffWithFormat(fmt.Sprintf("%v", rv1.Index(i)), "<missing>", "%s,")
+		default:
+			diff = d.ReflectValuesDiffWithFormat(rv1.Index(i), rv2.Index(i), "%s,")
+		}
 		if diff != "" {
-			sb.WriteString(diff)
+			sb.WriteString(fmt.Sprintf("[%d]%s", i, diff))
 		}
 	}
 	diff = sb.String()
@@ -230,6 +239,7 @@ func (d *Diffator) push(rv reflect.Value) {
 func (d *Diffator) pop() {
 	d.seen = d.seen[:len(d.seen)-1]
 }
+
 func (d *Diffator) alreadySeen(rv reflect.Value) bool {
 	return ContainsReflectValue(d.seen, rv)
 }
