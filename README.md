@@ -11,24 +11,7 @@ println(diff)
 ```
 
 ```go
-diff := diffator.ReflectValuesDiff(
-  reflect.ValueOf(value1),
-  reflect.ValueOf(value2),
-)
-println(diff)
-```
-
-```go
 diff := diffator.DiffWithFormat(value1,value2,"Diff: %s")
-println(diff)
-```
-
-```go
-diff := diffator.ReflectValuesDiffWithFormat(
-  reflect.ValueOf(value1),
-  reflect.ValueOf(value2),
-  "Diff: %s",
-)
 println(diff)
 ```
 
