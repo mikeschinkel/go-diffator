@@ -249,7 +249,9 @@ func (d *Diffator) push(rv reflect.Value) {
 }
 
 func (d *Diffator) pop() {
-	d.seen = d.seen[:len(d.seen)-1]
+	if len(d.seen) > 0 {
+		d.seen = d.seen[:len(d.seen)-1]
+	}
 }
 
 func (d *Diffator) alreadySeen(rv reflect.Value) bool {
