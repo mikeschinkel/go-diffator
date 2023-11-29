@@ -10,11 +10,15 @@ import (
 type Diffator struct {
 	seen         []reflect.Value
 	CompareFuncs bool
+	Pretty       bool
+	Indent       string
+	level        int
 }
 
 func New() *Diffator {
 	return &Diffator{
-		seen: make([]reflect.Value, 0),
+		seen:   make([]reflect.Value, 0),
+		Indent: "  ",
 	}
 }
 
@@ -73,7 +77,12 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 	case reflect.Struct:
 		diff := d.diffStruct(rv1, rv2)
 		if len(diff) > 0 {
-			diff = fmt.Sprintf("%s{%s}", rv1.Type().String(), diff)
+			f := "%s{%s}"
+			if d.Pretty {
+				r := strings.Repeat(d.Indent, d.level)
+				f = "%s{\n%s" + r + "}"
+			}
+			diff = fmt.Sprintf(f, rv1.Type().String(), diff)
 			sb.WriteString(fmt.Sprintf(format, diff))
 		}
 
@@ -148,10 +157,14 @@ end:
 	if !alreadySeen {
 		d.pop()
 	}
+	if d.Pretty && d.level == 0 && diff != "" {
+		diff = "\n" + diff
+	}
 	return diff
 }
 
 func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value) string {
+	d.level++
 	diff := ""
 	tmpSB := strings.Builder{}
 	for i := 0; i < rv1.NumField(); i++ {
@@ -160,15 +173,28 @@ func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value) string {
 			rv2.Field(i),
 			fmt.Sprintf("%v:%s,", rv1.Type().Field(i).Name, "%v"),
 		)
-		if diff != "" {
-			tmpSB.WriteString(diff)
+		if diff == "" {
+			continue
 		}
+		if !d.Pretty {
+			tmpSB.WriteString(diff)
+			continue
+		}
+		tmpSB.WriteString(strings.Repeat(d.Indent, d.level))
+		tmpSB.WriteString(diff)
+		tmpSB.WriteByte('\n')
 	}
 	diff = tmpSB.String()
+	d.level--
 	return diff
 }
 
+func (d *Diffator) indent() string {
+	return strings.Repeat(d.Indent, d.level)
+}
+
 func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
+	d.level++
 	sb := strings.Builder{}
 	cnt := max(rv1.Len(), rv2.Len())
 	for i := 0; i < cnt; i++ {
@@ -181,8 +207,17 @@ func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value) (diff stri
 			diff = d.ReflectValuesDiffWithFormat(rv1.Index(i), rv2.Index(i), "%s,")
 		}
 		if diff != "" {
-			sb.WriteString(fmt.Sprintf("[%d]%s", i, diff))
+			f := "[%d]%s"
+			if d.Pretty {
+				f = "\n" + d.indent() + f
+			}
+			sb.WriteString(fmt.Sprintf(f, i, diff))
 		}
+	}
+	d.level--
+	if diff != "" && d.Pretty {
+		sb.WriteByte('\n')
+		sb.WriteString(d.indent())
 	}
 	diff = sb.String()
 	return diff
@@ -276,6 +311,7 @@ func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value) (diff string)
 end:
 	return diff
 }
+
 func (d *Diffator) funcParams(rv reflect.Value) string {
 	rt := rv.Type()
 	cnt := rt.NumIn()
@@ -290,6 +326,7 @@ func (d *Diffator) funcParams(rv reflect.Value) string {
 	}
 	return ReflectValuesToNameString(in)
 }
+
 func (d *Diffator) funcReturns(rv reflect.Value) (returns string) {
 	rt := rv.Type()
 	cnt := rt.NumOut()
