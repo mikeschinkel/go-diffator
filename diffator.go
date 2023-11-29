@@ -130,8 +130,8 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 			sb.WriteString(diff)
 		}
 
-	case reflect.Invalid:
-		if reflect.DeepEqual(rv1, rv2) {
+	case reflect.Invalid, reflect.UnsafePointer:
+		if !reflect.DeepEqual(rv1, rv2) {
 			diff := fmt.Sprintf(format, d.notEqualDiff(rv1, rv2))
 			sb.WriteString(diff)
 		}
