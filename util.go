@@ -52,3 +52,22 @@ func SortReflectValues(rvs []reflect.Value) []reflect.Value {
 	})
 	return keys
 }
+
+func SliceReduceFunc[S ~[]E, E any, R any](s S, f func(any, R) R) (r R) {
+	for _, e := range s {
+		r = f(e, r)
+	}
+	return r
+}
+func ReflectValuesToNameString(in []reflect.Value) (names string) {
+	names = SliceReduceFunc(in, func(rv any, r string) string {
+		return fmt.Sprintf("%s,%s", r,
+			rv.(reflect.Value).Type().Name(),
+		)
+	})
+	if names != "" {
+		// Remove the leading comma
+		names = names[1:]
+	}
+	return names
+}

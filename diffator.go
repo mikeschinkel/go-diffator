@@ -8,7 +8,8 @@ import (
 )
 
 type Diffator struct {
-	seen []reflect.Value
+	seen         []reflect.Value
+	CompareFuncs bool
 }
 
 func New() *Diffator {
@@ -110,6 +111,17 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		if rv1.Uint() != rv2.Uint() {
 			diff := fmt.Sprintf(format, d.notEqualDiff(rv1.Uint(), rv2.Uint()))
 			sb.WriteString(diff)
+		}
+
+	case reflect.Func:
+		diff := d.diffFuncs(rv1, rv2, format)
+		if len(diff) > 0 {
+			diff = fmt.Sprintf("func(%s)%s",
+				d.funcParams(rv1),
+				d.funcReturns(rv1),
+				diff,
+			)
+			sb.WriteString(fmt.Sprintf(format, diff))
 		}
 
 	case reflect.String:
@@ -242,4 +254,46 @@ func (d *Diffator) pop() {
 
 func (d *Diffator) alreadySeen(rv reflect.Value) bool {
 	return ContainsReflectValue(d.seen, rv)
+}
+
+func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value, format string) (diff string) {
+	if rv1.IsNil() && rv2.IsNil() {
+		goto end
+	}
+	if rv1.IsNil() {
+		diff = fmt.Sprintf("(nil!=func(%s)%s)", d.funcParams(rv2), d.funcReturns(rv2))
+		goto end
+	}
+	if rv2.IsNil() {
+		diff = fmt.Sprintf("(func(%s)%s)!=nil)", d.funcParams(rv1), d.funcReturns(rv1))
+		goto end
+	}
+	if !d.CompareFuncs {
+		goto end
+	}
+end:
+	return diff
+}
+func (d *Diffator) funcParams(rv reflect.Value) string {
+	rt := rv.Type()
+	cnt := rt.NumIn()
+	in := make([]reflect.Value, cnt)
+	for i := 0; i < cnt; i++ {
+		param := rt.In(i)
+		if rt.IsVariadic() && i == cnt-1 {
+			in[i] = reflect.ValueOf(param).Elem()
+		} else {
+			in[i] = reflect.ValueOf(param)
+		}
+	}
+	return ReflectValuesToNameString(in)
+}
+func (d *Diffator) funcReturns(rv reflect.Value) (returns string) {
+	rt := rv.Type()
+	cnt := rt.NumOut()
+	in := make([]reflect.Value, cnt)
+	for i := 0; i < cnt; i++ {
+		in[i] = reflect.ValueOf(rt.Out(i))
+	}
+	return ReflectValuesToNameString(in)
 }
