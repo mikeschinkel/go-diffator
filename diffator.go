@@ -158,7 +158,7 @@ func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value) string {
 		diff = d.ReflectValuesDiffWithFormat(
 			rv1.Field(i),
 			rv2.Field(i),
-			fmt.Sprintf("%v:%s,", rv1.Field(i).Type().Name(), "%v"),
+			fmt.Sprintf("%v:%s,", rv1.Type().Field(i).Name, "%v"),
 		)
 		if diff != "" {
 			tmpSB.WriteString(diff)
