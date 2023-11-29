@@ -107,7 +107,7 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 			sb.WriteString(diff)
 		}
 
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		if rv1.Uint() != rv2.Uint() {
 			diff := fmt.Sprintf(format, d.notEqualDiff(rv1.Uint(), rv2.Uint()))
 			sb.WriteString(diff)
