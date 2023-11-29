@@ -71,14 +71,14 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		}
 
 	case reflect.Struct:
-		diff := d.diffStruct(rv1, rv2, format)
+		diff := d.diffStruct(rv1, rv2)
 		if len(diff) > 0 {
 			diff = fmt.Sprintf("%s{%s}", rv1.Type().String(), diff)
 			sb.WriteString(fmt.Sprintf(format, diff))
 		}
 
 	case reflect.Slice, reflect.Array:
-		diff := d.diffElements(rv1, rv2, format)
+		diff := d.diffElements(rv1, rv2)
 		if len(diff) > 0 {
 			switch rv1.Kind() {
 			case reflect.Slice:
@@ -91,7 +91,7 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		}
 
 	case reflect.Map:
-		diff := d.diffMaps(rv1, rv2, format)
+		diff := d.diffMaps(rv1, rv2)
 		if len(diff) > 0 {
 			diff = fmt.Sprintf("map[%s]%s{%s}",
 				rv1.Type().Key(),
@@ -114,7 +114,7 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		}
 
 	case reflect.Func:
-		diff := d.diffFuncs(rv1, rv2, format)
+		diff := d.diffFuncs(rv1, rv2)
 		if len(diff) > 0 {
 			diff = fmt.Sprintf("func(%s)%s",
 				d.funcParams(rv1),
@@ -151,7 +151,7 @@ end:
 	return diff
 }
 
-func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value, format string) string {
+func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value) string {
 	diff := ""
 	tmpSB := strings.Builder{}
 	for i := 0; i < rv1.NumField(); i++ {
@@ -168,7 +168,7 @@ func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value, format strin
 	return diff
 }
 
-func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value, format string) (diff string) {
+func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
 	sb := strings.Builder{}
 	cnt := max(rv1.Len(), rv2.Len())
 	for i := 0; i < cnt; i++ {
@@ -188,7 +188,7 @@ func (d *Diffator) diffElements(rv1 reflect.Value, rv2 reflect.Value, format str
 	return diff
 }
 
-func (d *Diffator) diffMaps(rv1 reflect.Value, rv2 reflect.Value, format string) (diff string) {
+func (d *Diffator) diffMaps(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
 	sb := strings.Builder{}
 	keys1 := SortReflectValues(rv1.MapKeys())
 	keys2 := SortReflectValues(rv2.MapKeys())
@@ -256,7 +256,7 @@ func (d *Diffator) alreadySeen(rv reflect.Value) bool {
 	return ContainsReflectValue(d.seen, rv)
 }
 
-func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value, format string) (diff string) {
+func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
 	if rv1.IsNil() && rv2.IsNil() {
 		goto end
 	}
