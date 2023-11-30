@@ -48,7 +48,7 @@ func TestDiff(t *testing.T) {
 				Int:    1,
 				String: "hello",
 			},
-			wantDiff:   "*diffator_test.TestStruct{int:(0!=1),string:(!=hello),}",
+			wantDiff:   "*diffator_test.TestStruct{Int:(0!=1),String:(!=hello),}",
 			wantFailed: true,
 		},
 		{
