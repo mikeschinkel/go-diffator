@@ -3,6 +3,7 @@ package diffator
 import (
 	"fmt"
 	"reflect"
+	"unsafe"
 )
 
 type ReflectValuer interface {
@@ -17,6 +18,8 @@ type ReflectValuer interface {
 	Int() int64
 	Float() float64
 	Bool() bool
+	Pointer() uintptr
+	UnsafePointer() unsafe.Pointer
 	Len() int
 	Index(int) ReflectValuer
 	Uint() uint64

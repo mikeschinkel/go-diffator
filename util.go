@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 )
 
 func panicf(msg string, args ...any) {
@@ -14,7 +15,7 @@ func panicf(msg string, args ...any) {
 func ContainsReflectValue(rvs []ReflectValuer, rv ReflectValuer) (contains bool) {
 	for _, item := range rvs {
 		if ReflectValuesEqual(item, rv) {
-			contains = true
+			contains = ReflectValuesEqual(item, rv)
 			goto end
 		}
 	}
@@ -33,8 +34,8 @@ func ReflectValuesEqual(rv1, rv2 ReflectValuer) (found bool) {
 		found = true
 		goto end
 	}
-	s1 = fmt.Sprintf("%v", rv1)
-	s2 = fmt.Sprintf("%v", rv2)
+	s1 = AsString(rv1)
+	s2 = AsString(rv2)
 	if s1 == s2 {
 		found = true
 		goto end
@@ -100,23 +101,65 @@ func AsString(a any) (s string) {
 	}
 	switch rv.Kind() {
 	case reflect.Interface:
-		// TODO: What about named interfaces?
 		s = fmt.Sprintf("any(%s)", AsString(ChildOf(rv)))
 	case reflect.Pointer:
-		// TODO: This is probably wrong
-		s = fmt.Sprintf("*%s", AsString(ChildOf(rv)))
+		//s = "*" + AsString(ChildOf(rv)) // TODO: Need to resolve infinite recursion
+		s = fmt.Sprintf("%016x", rv.Pointer())
 	case reflect.String:
 		s = strconv.Quote(rv.String())
 	case reflect.Int, reflect.Int8, reflect.Int16:
 		s = strconv.Itoa(int(rv.Int()))
 	case reflect.Int32, reflect.Int64:
 		s = strconv.FormatInt(rv.Int(), 10)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16:
+		s = strconv.Itoa(int(rv.Uint()))
+	case reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		s = strconv.FormatUint(rv.Uint(), 10)
 	case reflect.Float32:
 		s = strconv.FormatFloat(rv.Float(), 'g', 10, 32)
 	case reflect.Float64:
 		s = strconv.FormatFloat(rv.Float(), 'g', 10, 64)
-	case reflect.Map, reflect.Slice, reflect.Struct:
-		s = fmt.Sprintf("%s{...}", TypenameOf(rv))
+	case reflect.Map:
+		sb := strings.Builder{}
+		sb.WriteString(TypenameOf(rv))
+		keys := SortedMapKeys(rv)
+		sb.WriteByte('{')
+		raw := rv.ReflectValue()
+		for _, key := range keys {
+			sb.WriteString(AsString(key))
+			sb.WriteByte(':')
+			sb.WriteString(AsString(raw.MapIndex(key)))
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('}')
+		s = sb.String()
+	case reflect.Slice, reflect.Array:
+		sb := strings.Builder{}
+		sb.WriteString(TypenameOf(rv))
+		sb.WriteByte('{')
+		for i := 0; i < rv.Len(); i++ {
+			sb.WriteString(AsString(rv.Index(i)))
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('}')
+		s = sb.String()
+	case reflect.Struct:
+		sb := strings.Builder{}
+		sb.WriteString(TypenameOf(rv))
+		sb.WriteByte('{')
+		rt := rv.Type()
+		for i := 0; i < rv.NumField(); i++ {
+			sb.WriteString(AsString(rt.Field(i).Name))
+			sb.WriteByte(':')
+			sb.WriteString(AsString(rv.Field(i)))
+			sb.WriteByte(',')
+		}
+		sb.WriteByte('}')
+		s = sb.String()
+	case reflect.Func:
+		s = "func()error" // TODO: Flesh this out
+	case reflect.UnsafePointer:
+		s = fmt.Sprintf("%p", rv.UnsafePointer())
 	case reflect.Bool:
 		if rv.Bool() {
 			s = "true"
@@ -124,7 +167,7 @@ func AsString(a any) (s string) {
 			s = "false"
 		}
 	default:
-		panicf("Unhandled (s of yet) reflect value kind: %s", rv.Kind())
+		panicf("Unhandled (as of yet) reflect value kind: %s", rv.Kind())
 	}
 end:
 	return s
@@ -156,4 +199,28 @@ func ChildOf(rv ReflectValuer) (c ReflectValuer) {
 		c = rv.Elem()
 	}
 	return c
+}
+
+func SortedMapKeys(a any) (keys []reflect.Value) {
+	var rv reflect.Value
+	switch t := a.(type) {
+	case reflect.Value:
+		rv = t
+	case ReflectValuer:
+		rv = t.ReflectValue()
+	default:
+		rv = reflect.ValueOf(a)
+	}
+	if rv.Kind() != reflect.Map {
+		panicf("Value passed to SortedMapKeys() not a map: '%v'", a)
+	}
+	keyValues := rv.MapKeys()
+	keys = make([]reflect.Value, len(keyValues))
+	for i, k := range keyValues {
+		keys[i] = k
+	}
+	sort.SliceStable(keys, func(i, j int) bool {
+		return keys[i].String() < keys[j].String()
+	})
+	return keys
 }
