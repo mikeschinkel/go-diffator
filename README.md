@@ -22,7 +22,7 @@ println(diff)
 ```
 
 ```go
-d := diffator.New()
+d := diffator.NewDiffator()
 diff := d.DiffWithFormat(value1,value2,"Diff: %s")
 println(diff)
 ```
