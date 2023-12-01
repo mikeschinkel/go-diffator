@@ -28,7 +28,9 @@ println(diff)
 ```
 
 ## Status
-In active use, but only addresses those data types that the author has needed to address his use-case.  If you would like to use this and you find it generated a panic for an unimplemented type, [pull requests](https://github.com/mikeschinkel/go-diffator/compare) are accepted and appreciated.
+In active use, but only addresses those data types that the author has needed to address his use-case.  
+
+If you would like to use this and you find it generates a panic for an unimplemented type, [pull requests](https://github.com/mikeschinkel/go-diffator/compare) are accepted and appreciated.
 
 ## License
 Apache 2.0
