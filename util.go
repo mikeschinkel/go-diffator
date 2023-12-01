@@ -101,7 +101,7 @@ func AsString(a any) (s string) {
 	}
 	switch rv.Kind() {
 	case reflect.Interface:
-		s = fmt.Sprintf("any(%s)", AsString(ChildOf(rv)))
+		s = AsString(ChildOf(rv))
 	case reflect.Pointer:
 		//s = "*" + AsString(ChildOf(rv)) // TODO: Need to resolve infinite recursion
 		s = fmt.Sprintf("%016x", rv.Pointer())
