@@ -21,7 +21,7 @@ type Diffator struct {
 	mutex        sync.Mutex
 }
 
-func New() *Diffator {
+func NewDiffator() *Diffator {
 	return &Diffator{
 		seen:   make([]ReflectValuer, 0),
 		Indent: "  ",

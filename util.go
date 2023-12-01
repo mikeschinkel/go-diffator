@@ -92,7 +92,7 @@ func AsString(a any) (s string) {
 	case ReflectValuer:
 		rv = t
 	default:
-		rv = New().NewValue(t)
+		rv = NewDiffator().NewValue(t)
 	}
 	if !rv.IsValid() {
 		s = "nil"
