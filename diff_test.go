@@ -31,7 +31,6 @@ func TestDiff(t *testing.T) {
 			name:       "int100:matching",
 			v1:         100,
 			v2:         100,
-			wantDiff:   "",
 			wantFailed: false,
 		},
 		{
@@ -45,7 +44,6 @@ func TestDiff(t *testing.T) {
 			name:       "struct-vs-struct:matching",
 			v1:         &TestStruct{},
 			v2:         &TestStruct{},
-			wantDiff:   "",
 			wantFailed: false,
 		},
 		{
@@ -69,7 +67,6 @@ func TestDiff(t *testing.T) {
 			name:       "map-vs-map:matching",
 			v1:         map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
 			v2:         map[string]int{"Foo": 1, "Bar": 2, "Baz": 3},
-			wantDiff:   "",
 			wantFailed: false,
 		},
 		{
@@ -83,7 +80,6 @@ func TestDiff(t *testing.T) {
 			name:       "slice-vs-slice:matching",
 			v1:         []int{1, 2, 3},
 			v2:         []int{1, 2, 3},
-			wantDiff:   "",
 			wantFailed: false,
 		},
 		{
