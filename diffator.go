@@ -10,66 +10,22 @@ import (
 
 type Diffator struct {
 	values       [2]any
-	seen         []ReflectValuer
+	seen         []reflect.Value
 	CompareFuncs bool
 	Pretty       bool
 	Indent       string
 	level        int
-	FormatFunc   func(ReflectTyper, any) string
 	nextValueId  int
 	nextTypeId   int
 	mutex        sync.Mutex
+	FormatFunc   func(reflect.Type, any) string
 }
 
 func NewDiffator() *Diffator {
 	return &Diffator{
 		seen:   make([]ReflectValuer, 0),
+		seen:   make([]reflect.Value, 0),
 		Indent: "  ",
-	}
-}
-
-func (d *Diffator) NewValue(value any) *Value {
-	d.mutex.Lock()
-	d.nextValueId++
-	d.mutex.Unlock()
-	switch t := value.(type) {
-	case reflect.Value:
-		// We already have what we need.
-		// So do nothing.
-	case ReflectValuer:
-		value = t.ReflectValue()
-	default:
-		value = reflect.ValueOf(t)
-	}
-	return &Value{
-		diffator: d,
-		id:       d.nextValueId,
-		Value:    value.(reflect.Value),
-	}
-}
-
-func (d *Diffator) NewType(typ any) *Type {
-	d.mutex.Lock()
-	d.nextTypeId++
-	d.mutex.Unlock()
-	switch t := typ.(type) {
-	case reflect.Type:
-		// We already have what we need.
-		// So do nothing.
-	case reflect.Value:
-		typ = t.Type()
-	case ReflectValuer:
-		typ = t.ReflectType()
-	case ReflectTyper:
-		typ = t.ReflectType()
-	default:
-		typ = reflect.TypeOf(t)
-	}
-	rt, _ := typ.(reflect.Type)
-	return &Type{
-		diffator: d,
-		id:       d.nextTypeId,
-		Type:     rt,
 	}
 }
 
@@ -79,31 +35,31 @@ func (d *Diffator) Diff(v1, v2 any) string {
 
 func (d *Diffator) DiffWithFormat(v1, v2 any, format string) string {
 	switch v1.(type) {
-	case ReflectValuer:
+	case reflect.Value:
 		// We got what we need, do nothing
 	default:
-		v1 = d.NewValue(v1)
+		v1 = reflect.ValueOf(v1)
 	}
 	switch v2.(type) {
-	case ReflectValuer:
+	case reflect.Value:
 		// We got what we need, do nothing
 	default:
-		v2 = d.NewValue(v2)
+		v2 = reflect.ValueOf(v2)
 	}
 	d.values[0] = v1
 	d.values[1] = v2
 	return d.ReflectValuesDiffWithFormat(
-		v1.(ReflectValuer),
-		v2.(ReflectValuer),
+		v1.(reflect.Value),
+		v2.(reflect.Value),
 		format,
 	)
 }
 
-func (d *Diffator) ReflectValuesDiff(rv1, rv2 ReflectValuer) string {
+func (d *Diffator) ReflectValuesDiff(rv1, rv2 reflect.Value) string {
 	return ReflectValuesDiffWithFormat(rv1, rv2, "%s")
 }
 
-func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 ReflectValuer, format string) (diff string) {
+func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format string) (diff string) {
 	var sb strings.Builder
 	var alreadySeen bool
 
@@ -233,9 +189,9 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 ReflectValuer, format st
 		}
 
 	case reflect.Invalid, reflect.UnsafePointer:
-		if !reflect.DeepEqual(rv1.ReflectValue(), rv2.ReflectValue()) {
+		if !reflect.DeepEqual(rv1, rv2) {
 			diff := fmt.Sprintf(format, d.notEqualDiff(
-				d.NewType(nil),
+				reflect.TypeOf(nil),
 				rv1,
 				rv2,
 			))
@@ -260,7 +216,7 @@ end:
 	return diff
 }
 
-func (d *Diffator) diffStruct(rv1 ReflectValuer, rv2 ReflectValuer) string {
+func (d *Diffator) diffStruct(rv1 reflect.Value, rv2 reflect.Value) string {
 	d.level++
 	diff := ""
 	sb := strings.Builder{}
@@ -290,7 +246,7 @@ func (d *Diffator) indent() string {
 	return strings.Repeat(d.Indent, d.level)
 }
 
-func (d *Diffator) diffElements(rv1, rv2 ReflectValuer) (diff string) {
+func (d *Diffator) diffElements(rv1, rv2 reflect.Value) (diff string) {
 	d.level++
 	sb := strings.Builder{}
 	cnt := max(rv1.Len(), rv2.Len())
@@ -320,7 +276,7 @@ func (d *Diffator) diffElements(rv1, rv2 ReflectValuer) (diff string) {
 	return diff
 }
 
-func (d *Diffator) diffMaps(rv1, rv2 ReflectValuer) (diff string) {
+func (d *Diffator) diffMaps(rv1, rv2 reflect.Value) (diff string) {
 	sb := strings.Builder{}
 	keys1 := SortReflectValues(rv1.MapKeys())
 	keys2 := SortReflectValues(rv2.MapKeys())
@@ -353,7 +309,7 @@ func (d *Diffator) diffMaps(rv1, rv2 ReflectValuer) (diff string) {
 
 func (d *Diffator) checkValid(rv1, rv2 ReflectValuer, sb strings.Builder) bool {
 	if rv1.IsValid() != rv2.IsValid() {
-		sb.WriteString(d.notEqualDiff(d.NewType(nil),
+		sb.WriteString(d.notEqualDiff(reflect.TypeOf(nil),
 			fmt.Sprintf("Valid:%t", rv1.IsValid()),
 			fmt.Sprintf("Valid:%t", rv2.IsValid()),
 		))
@@ -362,7 +318,7 @@ func (d *Diffator) checkValid(rv1, rv2 ReflectValuer, sb strings.Builder) bool {
 	return true
 }
 
-func (d *Diffator) checkKind(rv1, rv2 ReflectValuer, sb strings.Builder) bool {
+func (d *Diffator) checkKind(rv1, rv2 reflect.Value, sb strings.Builder) bool {
 	if rv1.Kind() != rv2.Kind() {
 		sb.WriteString(d.notEqualDiff(rv1.Type(),
 			fmt.Sprintf("Kind:%s", rv1.Kind().String()),
@@ -373,7 +329,7 @@ func (d *Diffator) checkKind(rv1, rv2 ReflectValuer, sb strings.Builder) bool {
 	return true
 }
 
-func (d *Diffator) notEqualDiff(rt ReflectTyper, v1, v2 any) (diff string) {
+func (d *Diffator) notEqualDiff(rt reflect.Type, v1, v2 any) (diff string) {
 	if d.FormatFunc == nil {
 		diff = fmt.Sprintf("(%v!=%v)", v1, v2)
 		goto end
@@ -400,7 +356,7 @@ func (d *Diffator) alreadySeen(rv ReflectValuer) bool {
 	return ContainsReflectValue(d.seen, rv)
 }
 
-func (d *Diffator) diffFuncs(rv1 ReflectValuer, rv2 ReflectValuer) (diff string) {
+func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
 	if rv1.IsNil() && rv2.IsNil() {
 		goto end
 	}
@@ -419,13 +375,13 @@ end:
 	return diff
 }
 
-func (d *Diffator) funcParams(rv ReflectValuer) string {
+func (d *Diffator) funcParams(rv reflect.Value) string {
 	rt := rv.Type()
 	cnt := rt.NumIn()
 	last := cnt - 1
-	in := make([]ReflectTyper, cnt)
+	in := make([]reflect.Type, cnt)
 	for i := 0; i < cnt; i++ {
-		in[i] = d.NewType(rt.In(i))
+		in[i] = reflect.TypeOf(rt.In(i))
 		if !rt.IsVariadic() {
 			continue
 		}
@@ -438,12 +394,12 @@ func (d *Diffator) funcParams(rv ReflectValuer) string {
 	return ReflectorsToNameString(in)
 }
 
-func (d *Diffator) funcReturns(rv ReflectValuer) (returns string) {
+func (d *Diffator) funcReturns(rv reflect.Value) (returns string) {
 	rt := rv.Type()
 	cnt := rt.NumOut()
-	out := make([]ReflectValuer, cnt)
+	out := make([]reflect.Value, cnt)
 	for i := 0; i < cnt; i++ {
-		out[i] = d.NewValue(rt.Out(i))
+		out[i] = reflect.ValueOf(rt.Out(i))
 	}
 	return ReflectorsToNameString(out)
 }

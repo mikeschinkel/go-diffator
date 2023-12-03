@@ -12,7 +12,7 @@ func panicf(msg string, args ...any) {
 	panic(fmt.Sprintf(msg, args...))
 }
 
-func ContainsReflectValue(rvs []ReflectValuer, rv ReflectValuer) (contains bool) {
+func ContainsReflectValue(rvs []reflect.Value, rv reflect.Value) (contains bool) {
 	for _, item := range rvs {
 		if ReflectValuesEqual(item, rv) {
 			contains = ReflectValuesEqual(item, rv)
@@ -23,7 +23,7 @@ end:
 	return contains
 }
 
-func ReflectValuesEqual(rv1, rv2 ReflectValuer) (found bool) {
+func ReflectValuesEqual(rv1, rv2 reflect.Value) (found bool) {
 	var s1, s2 string
 
 	if rv1 == rv2 {
@@ -44,8 +44,8 @@ end:
 	return found
 }
 
-func SortReflectValues(rvs []ReflectValuer) []ReflectValuer {
-	keys := make([]ReflectValuer, len(rvs))
+func SortReflectValues(rvs []reflect.Value) []reflect.Value {
+	keys := make([]reflect.Value, len(rvs))
 	for i, k := range rvs {
 		keys[i] = k
 	}
@@ -65,10 +65,6 @@ func SliceReduceFunc[S ~[]E, E any, R any](s S, f func(any, R) R) (r R) {
 func ReflectorsToNameString[S ~[]E, E any](in S) (names string) {
 	names = SliceReduceFunc(in, func(rv any, r string) (name string) {
 		switch t := rv.(type) {
-		case ReflectTyper:
-			name = t.Name()
-		case ReflectValuer:
-			name = t.ReflectType().Name()
 		case reflect.Type:
 			name = t.Name()
 		case reflect.Value:
@@ -90,10 +86,10 @@ func ReflectorsToNameString[S ~[]E, E any](in S) (names string) {
 func AsString(a any) (s string) {
 	var rv ReflectValuer
 	switch t := a.(type) {
-	case ReflectValuer:
+	case reflect.Value:
 		rv = t
 	default:
-		rv = NewDiffator().NewValue(t)
+		rv = reflect.ValueOf(t)
 	}
 	if !rv.IsValid() {
 		s = "nil"
@@ -124,11 +120,10 @@ func AsString(a any) (s string) {
 		sb.WriteString(TypenameOf(rv))
 		keys := SortedMapKeys(rv)
 		sb.WriteByte('{')
-		raw := rv.ReflectValue()
 		for _, key := range keys {
 			sb.WriteString(AsString(key))
 			sb.WriteByte(':')
-			sb.WriteString(AsString(raw.MapIndex(key)))
+			sb.WriteString(r.AsString(rv.MapIndex(key)))
 			sb.WriteByte(',')
 		}
 		sb.WriteByte('}')
@@ -173,8 +168,8 @@ end:
 	return s
 }
 
-func TypenameOf(rv ReflectValuer) (n string) {
-	var rt ReflectTyper
+func TypenameOf(rv reflect.Value) (n string) {
+	var rt reflect.Type
 
 	if !rv.IsValid() {
 		n = "nil"
@@ -193,7 +188,7 @@ end:
 	return n
 }
 
-func ChildOf(rv ReflectValuer) (c ReflectValuer) {
+func ChildOf(rv reflect.Value) (c reflect.Value) {
 	switch rv.Kind() {
 	case reflect.Pointer, reflect.Interface:
 		c = rv.Elem()
@@ -206,8 +201,6 @@ func SortedMapKeys(a any) (keys []reflect.Value) {
 	switch t := a.(type) {
 	case reflect.Value:
 		rv = t
-	case ReflectValuer:
-		rv = t.ReflectValue()
 	default:
 		rv = reflect.ValueOf(a)
 	}
