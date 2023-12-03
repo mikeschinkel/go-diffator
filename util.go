@@ -4,44 +4,10 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strconv"
-	"strings"
 )
 
 func panicf(msg string, args ...any) {
 	panic(fmt.Sprintf(msg, args...))
-}
-
-func ContainsReflectValue(rvs []reflect.Value, rv reflect.Value) (contains bool) {
-	for _, item := range rvs {
-		if ReflectValuesEqual(item, rv) {
-			contains = ReflectValuesEqual(item, rv)
-			goto end
-		}
-	}
-end:
-	return contains
-}
-
-func ReflectValuesEqual(rv1, rv2 reflect.Value) (found bool) {
-	var s1, s2 string
-
-	if rv1 == rv2 {
-		found = true
-		goto end
-	}
-	if reflect.DeepEqual(rv1, rv2) {
-		found = true
-		goto end
-	}
-	s1 = AsString(rv1)
-	s2 = AsString(rv2)
-	if s1 == s2 {
-		found = true
-		goto end
-	}
-end:
-	return found
 }
 
 func SortReflectValues(rvs []reflect.Value) []reflect.Value {
@@ -81,119 +47,6 @@ func ReflectorsToNameString[S ~[]E, E any](in S) (names string) {
 		names = names[1:]
 	}
 	return names
-}
-
-func AsString(a any) (s string) {
-	var rv ReflectValuer
-	switch t := a.(type) {
-	case reflect.Value:
-		rv = t
-	default:
-		rv = reflect.ValueOf(t)
-	}
-	if !rv.IsValid() {
-		s = "nil"
-		goto end
-	}
-	switch rv.Kind() {
-	case reflect.Interface:
-		s = AsString(ChildOf(rv))
-	case reflect.Pointer:
-		//s = "*" + AsString(ChildOf(rv)) // TODO: Need to resolve infinite recursion
-		s = fmt.Sprintf("%016x", rv.Pointer())
-	case reflect.String:
-		s = strconv.Quote(rv.String())
-	case reflect.Int, reflect.Int8, reflect.Int16:
-		s = strconv.Itoa(int(rv.Int()))
-	case reflect.Int32, reflect.Int64:
-		s = strconv.FormatInt(rv.Int(), 10)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16:
-		s = strconv.Itoa(int(rv.Uint()))
-	case reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		s = strconv.FormatUint(rv.Uint(), 10)
-	case reflect.Float32:
-		s = strconv.FormatFloat(rv.Float(), 'g', 10, 32)
-	case reflect.Float64:
-		s = strconv.FormatFloat(rv.Float(), 'g', 10, 64)
-	case reflect.Map:
-		sb := strings.Builder{}
-		sb.WriteString(TypenameOf(rv))
-		keys := SortedMapKeys(rv)
-		sb.WriteByte('{')
-		for _, key := range keys {
-			sb.WriteString(AsString(key))
-			sb.WriteByte(':')
-			sb.WriteString(r.AsString(rv.MapIndex(key)))
-			sb.WriteByte(',')
-		}
-		sb.WriteByte('}')
-		s = sb.String()
-	case reflect.Slice, reflect.Array:
-		sb := strings.Builder{}
-		sb.WriteString(TypenameOf(rv))
-		sb.WriteByte('{')
-		for i := 0; i < rv.Len(); i++ {
-			sb.WriteString(AsString(rv.Index(i)))
-			sb.WriteByte(',')
-		}
-		sb.WriteByte('}')
-		s = sb.String()
-	case reflect.Struct:
-		sb := strings.Builder{}
-		sb.WriteString(TypenameOf(rv))
-		sb.WriteByte('{')
-		rt := rv.Type()
-		for i := 0; i < rv.NumField(); i++ {
-			sb.WriteString(AsString(rt.Field(i).Name))
-			sb.WriteByte(':')
-			sb.WriteString(AsString(rv.Field(i)))
-			sb.WriteByte(',')
-		}
-		sb.WriteByte('}')
-		s = sb.String()
-	case reflect.Func:
-		s = "func()error" // TODO: Flesh this out
-	case reflect.UnsafePointer:
-		s = fmt.Sprintf("%p", rv.UnsafePointer())
-	case reflect.Bool:
-		if rv.Bool() {
-			s = "true"
-		} else {
-			s = "false"
-		}
-	default:
-		panicf("Unhandled (as of yet) reflect value kind: %s", rv.Kind())
-	}
-end:
-	return s
-}
-
-func TypenameOf(rv reflect.Value) (n string) {
-	var rt reflect.Type
-
-	if !rv.IsValid() {
-		n = "nil"
-		goto end
-	}
-	rt = rv.Type()
-	switch rv.Kind() {
-	case reflect.Interface:
-		n = fmt.Sprintf("any(%s)", TypenameOf(ChildOf(rv)))
-	case reflect.Pointer:
-		n = fmt.Sprintf("*%s", TypenameOf(ChildOf(rv)))
-	default:
-		n = rt.String()
-	}
-end:
-	return n
-}
-
-func ChildOf(rv reflect.Value) (c reflect.Value) {
-	switch rv.Kind() {
-	case reflect.Pointer, reflect.Interface:
-		c = rv.Elem()
-	}
-	return c
 }
 
 func SortedMapKeys(a any) (keys []reflect.Value) {
