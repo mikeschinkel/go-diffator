@@ -3,9 +3,7 @@ package diffator
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
-	"sync"
 )
 
 type Diffator struct {
@@ -15,17 +13,15 @@ type Diffator struct {
 	Pretty       bool
 	Indent       string
 	level        int
-	nextValueId  int
-	nextTypeId   int
-	mutex        sync.Mutex
 	FormatFunc   func(reflect.Type, any) string
+	idTracker    *ValueIdTracker
 }
 
 func NewDiffator() *Diffator {
 	return &Diffator{
-		seen:   make([]ReflectValuer, 0),
-		seen:   make([]reflect.Value, 0),
-		Indent: "  ",
+		idTracker: NewValueIdTracker(),
+		seen:      make([]reflect.Value, 0),
+		Indent:    "  ",
 	}
 }
 
@@ -46,6 +42,8 @@ func (d *Diffator) DiffWithFormat(v1, v2 any, format string) string {
 	default:
 		v2 = reflect.ValueOf(v2)
 	}
+	// Copy original values so they are available during debugging, or if needed
+	// later for other things.
 	d.values[0] = v1
 	d.values[1] = v2
 	return d.ReflectValuesDiffWithFormat(
@@ -62,6 +60,7 @@ func (d *Diffator) ReflectValuesDiff(rv1, rv2 reflect.Value) string {
 func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format string) (diff string) {
 	var sb strings.Builder
 	var alreadySeen bool
+	var id ValueId
 
 	if !d.checkValid(rv1, rv2, sb) {
 		goto end
@@ -71,16 +70,28 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 		goto end
 	}
 
-	if d.alreadySeen(rv1) {
-		alreadySeen = true
+	alreadySeen, id = d.idTracker.Push(rv1)
+	if alreadySeen {
 		goto end
 	}
-
-	d.push(rv1)
+	defer d.idTracker.Pop(id)
 
 	switch rv1.Kind() {
 	case reflect.Pointer:
-		diff := d.ReflectValuesDiffWithFormat(rv1.Elem(), rv2.Elem(), "*%s")
+		rv1 = rv1.Elem()
+		rv2 = rv2.Elem()
+		switch {
+		case !rv1.IsValid() && !rv2.IsValid():
+			// Do nothing
+		case !rv1.IsValid():
+			r := NewReflector()
+			diff = d.notEqualDiff(rv2.Type(), "nil", r.AsString(rv2))
+		case !rv2.IsValid():
+			r := NewReflector()
+			diff = d.notEqualDiff(rv1.Type(), r.AsString(rv1), "nil")
+		default:
+			diff = d.ReflectValuesDiffWithFormat(rv1, rv2, "*%s")
+		}
 		if diff != "" {
 			sb.WriteString(fmt.Sprintf(format, diff))
 		}
@@ -207,9 +218,6 @@ func (d *Diffator) ReflectValuesDiffWithFormat(rv1, rv2 reflect.Value, format st
 	}
 
 end:
-	if !alreadySeen {
-		d.pop()
-	}
 	if d.Pretty && d.level == 0 && diff != "" {
 		diff = "\n" + diff
 	}
@@ -253,9 +261,17 @@ func (d *Diffator) diffElements(rv1, rv2 reflect.Value) (diff string) {
 	for i := 0; i < cnt; i++ {
 		switch {
 		case i >= rv1.Len():
-			diff = d.DiffWithFormat("<missing>", fmt.Sprintf("%v", rv2.Index(i).ValueString()), "%s,")
+			diff = d.DiffWithFormat(
+				"<missing>",
+				fmt.Sprintf("%v", NewReflector().AsString(rv2.Index(i))),
+				"%s,",
+			)
 		case i >= rv2.Len():
-			diff = d.DiffWithFormat(fmt.Sprintf("%v", rv1.Index(i).ValueString()), "<missing>", "%s,")
+			diff = d.DiffWithFormat(
+				fmt.Sprintf("%v", NewReflector().AsString(rv1.Index(i))),
+				"<missing>",
+				"%s,",
+			)
 		default:
 			diff = d.ReflectValuesDiffWithFormat(rv1.Index(i), rv2.Index(i), "%s,")
 		}
@@ -278,36 +294,50 @@ func (d *Diffator) diffElements(rv1, rv2 reflect.Value) (diff string) {
 
 func (d *Diffator) diffMaps(rv1, rv2 reflect.Value) (diff string) {
 	sb := strings.Builder{}
-	keys1 := SortReflectValues(rv1.MapKeys())
-	keys2 := SortReflectValues(rv2.MapKeys())
-	for i, k := range keys1 {
-		if !ContainsReflectValue(keys2, k) {
-			sb.WriteString(fmt.Sprintf("%v:<missing:expected>,", k))
+	keys1, nId1 := d.prepMapKeysForValue(rv1)
+	keys2, nId2 := d.prepMapKeysForValue(rv2)
+
+	for _, key := range keys1 {
+		seen, id := nId2.HaveSeen(key)
+		if !seen {
+			sb.WriteString(fmt.Sprintf("%v:<missing:expected>,", key))
 			continue
 		}
-		slices.DeleteFunc(keys2, func(value ReflectValuer) bool {
-			//return ReflectValuesEqual(value, keys2[i])
-			return ReflectValuesEqual(k, keys2[i])
-		})
+		nId2.Delete(id)
 		diff = d.ReflectValuesDiffWithFormat(
-			rv1.MapIndex(k),
-			rv2.MapIndex(k),
-			fmt.Sprintf("%v:%s,", k, "%v"),
+			rv1.MapIndex(key),
+			rv2.MapIndex(key),
+			fmt.Sprintf("%v:%s,", key, "%v"),
 		)
 		if diff != "" {
 			sb.WriteString(diff)
 		}
 	}
-	for _, k := range keys2 {
-		if !ContainsReflectValue(keys1, k) {
-			sb.WriteString(fmt.Sprintf("%v:<missing:actual>,", k))
+	for _, key := range keys2 {
+		seen, _ := nId1.HaveSeen(key)
+		if !seen {
+			sb.WriteString(fmt.Sprintf("%v:<missing:actual>,", key))
 		}
 	}
 	diff = sb.String()
 	return diff
 }
 
-func (d *Diffator) checkValid(rv1, rv2 ReflectValuer, sb strings.Builder) bool {
+// prepMapKeysForValue returns sorted map keys as a slice, and a ValueIdTracker for the Value
+func (d *Diffator) prepMapKeysForValue(rv reflect.Value) (keys []reflect.Value, vId ValueIdTracker) {
+	m := make(ValueIdMap)
+	keys = rv.MapKeys()
+	nId := NewValueIdTracker()
+	for _, k := range keys {
+		rvId := nId.IdOf(k)
+		m[rvId] = struct{}{}
+	}
+	vId.SetSeen(m)
+	keys = SortReflectValues(keys)
+	return keys, vId
+}
+
+func (d *Diffator) checkValid(rv1, rv2 reflect.Value, sb strings.Builder) bool {
 	if rv1.IsValid() != rv2.IsValid() {
 		sb.WriteString(d.notEqualDiff(reflect.TypeOf(nil),
 			fmt.Sprintf("Valid:%t", rv1.IsValid()),
@@ -340,20 +370,6 @@ func (d *Diffator) notEqualDiff(rt reflect.Type, v1, v2 any) (diff string) {
 	)
 end:
 	return diff
-}
-
-func (d *Diffator) push(rv ReflectValuer) {
-	d.seen = append(d.seen, rv)
-}
-
-func (d *Diffator) pop() {
-	if len(d.seen) > 0 {
-		d.seen = d.seen[:len(d.seen)-1]
-	}
-}
-
-func (d *Diffator) alreadySeen(rv ReflectValuer) bool {
-	return ContainsReflectValue(d.seen, rv)
 }
 
 func (d *Diffator) diffFuncs(rv1 reflect.Value, rv2 reflect.Value) (diff string) {
