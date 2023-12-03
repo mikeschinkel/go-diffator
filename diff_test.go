@@ -12,7 +12,14 @@ type TestStruct struct {
 	String string
 }
 
+type RecurStruct struct {
+	Recur *RecurStruct
+}
+
 func TestDiff(t *testing.T) {
+	recurStruct := RecurStruct{}
+	recurStruct.Recur = &recurStruct
+
 	tests := []struct {
 		name       string
 		v1         any
@@ -42,7 +49,14 @@ func TestDiff(t *testing.T) {
 			wantFailed: false,
 		},
 		{
-			name: "struct-vs-struct:failing",
+			name:       "struct-vs-struct:failing",
+			v1:         &RecurStruct{},
+			v2:         &recurStruct,
+			wantDiff:   `*diffator_test.RecurStruct{Recur:(nil!=diffator_test.RecurStruct{"Recur":*<recursion>,}),}`,
+			wantFailed: true,
+		},
+		{
+			name: "recur-struct:failing",
 			v1:   &TestStruct{},
 			v2: &TestStruct{
 				Int:    1,
