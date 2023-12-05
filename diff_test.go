@@ -50,7 +50,7 @@ func TestDiff(t *testing.T) {
 			name:       "struct-vs-struct:failing",
 			v1:         &RecurStruct{},
 			v2:         &recurStruct,
-			wantDiff:   `*diffator_test.RecurStruct{Recur:(nil!=diffator_test.RecurStruct{"Recur":*<recursion>,}),}`,
+			wantDiff:   `*diffator_test.RecurStruct{Recur:(nil!=diffator_test.RecurStruct{Recur:*diffator_test.RecurStruct{Recur:<recursion>,},}),}`,
 			wantFailed: true,
 		},
 		{

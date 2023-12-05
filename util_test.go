@@ -35,12 +35,12 @@ func TestAsString(t *testing.T) {
 		{
 			name:  `Direct recursion`,
 			value: &rs1,
-			wantS: `*diffator_test.Recur1Struct{"Name":"Test","Child":<recursion>,}`,
+			wantS: `*diffator_test.Recur1Struct{Name:"Test",Child:<recursion>,}`,
 		},
 		{
 			name:  `Indirect recursion`,
 			value: &rs2,
-			wantS: `*diffator_test.Recur2Struct{"Name":"Test","Slice":[]*diffator_test.Recur2Struct{<recursion>,},}`,
+			wantS: `*diffator_test.Recur2Struct{Name:"Test",Slice:[]*diffator_test.Recur2Struct{<recursion>,},}`,
 		},
 		{
 			name:  "Int Seven (7)",
@@ -55,7 +55,8 @@ func TestAsString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := diffator.NewReflector().AsString(tt.value)
+			v := tt.value
+			got := diffator.NewReflector(v).String()
 			assert.Equalf(t, tt.wantS, got, "AsString(%v)", tt.value)
 		})
 	}
