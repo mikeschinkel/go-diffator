@@ -33,6 +33,8 @@ func ReflectorsToNameString[S ~[]E, E any](in S) (names string) {
 		switch t := rv.(type) {
 		case reflect.Type:
 			name = t.Name()
+		case *reflect.Value:
+			name = t.Type().Name()
 		case reflect.Value:
 			name = t.Type().Name()
 		default:
@@ -52,6 +54,8 @@ func ReflectorsToNameString[S ~[]E, E any](in S) (names string) {
 func SortedMapKeys(a any) (keys []reflect.Value) {
 	var rv reflect.Value
 	switch t := a.(type) {
+	case *reflect.Value:
+		rv = *t
 	case reflect.Value:
 		rv = t
 	default:
