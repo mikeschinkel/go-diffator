@@ -74,3 +74,41 @@ func SortedMapKeys(a any) (keys []reflect.Value) {
 	})
 	return keys
 }
+
+func isReference(rk reflect.Kind) bool {
+	switch rk {
+	case reflect.Pointer, reflect.Map, reflect.Slice:
+		return true
+	}
+	return false
+}
+
+func Equivalent(v1, v2 any) (same bool) {
+	rv1 := reflect.ValueOf(v1)
+	rv2 := reflect.ValueOf(v2)
+	switch {
+	case !rv1.IsValid() && !rv2.IsValid():
+		same = true
+		goto end
+	case !rv1.IsValid() || !rv2.IsValid():
+		goto end
+	}
+	if rv1.Kind() != rv2.Kind() {
+		goto end
+	}
+	if rv1.Kind() == reflect.Pointer {
+		rv1 = rv1.Elem()
+	}
+	if rv2.Kind() == reflect.Pointer {
+		rv2 = rv2.Elem()
+	}
+	if rv1.Comparable() && rv2.Comparable() && !rv1.Equal(rv2) {
+		goto end
+	}
+	if !reflect.DeepEqual(rv1, rv2) {
+		goto end
+	}
+	same = true
+end:
+	return same
+}
