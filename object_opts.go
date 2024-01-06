@@ -1,9 +1,15 @@
 package diffator
 
+import (
+	"reflect"
+)
+
 type ObjectOpts struct {
 	LevelIndent  *StringValue
 	OutputFormat *StringValue
 	PrettyPrint  *BoolValue
+	CompareFuncs bool
+	FormatFunc   func(reflect.Type, any) string
 }
 
 func (opts *ObjectOpts) SetDefaults() {

@@ -9,13 +9,11 @@ import (
 var _ Comparator = (*ObjectComparator)(nil)
 
 type ObjectComparator struct {
-	values       [2]any
-	seen         []reflect.Value
-	CompareFuncs bool
-	level        int
-	FormatFunc   func(reflect.Type, any) string
-	tracker      *Tracker
-	opts         *ObjectOpts
+	values  [2]any
+	seen    []reflect.Value
+	level   int
+	tracker *Tracker
+	opts    *ObjectOpts
 }
 
 func NewObjectComparator(v1, v2 any, opts *ObjectOpts) *ObjectComparator {
@@ -357,13 +355,14 @@ func (o *ObjectComparator) checkKind(rv1, rv2 *reflect.Value, sb strings.Builder
 }
 
 func (o *ObjectComparator) notEqualDiff(rt reflect.Type, v1, v2 any) (diff string) {
-	if o.FormatFunc == nil {
+	opts := o.opts
+	if opts.FormatFunc == nil {
 		diff = fmt.Sprintf("(%v!=%v)", v1, v2)
 		goto end
 	}
 	diff = fmt.Sprintf("(%s!=%s)",
-		o.FormatFunc(rt, v1),
-		o.FormatFunc(rt, v2),
+		opts.FormatFunc(rt, v1),
+		opts.FormatFunc(rt, v2),
 	)
 end:
 	return diff
@@ -381,7 +380,7 @@ func (o *ObjectComparator) diffFuncs(rv1, rv2 *reflect.Value) (diff string) {
 		diff = fmt.Sprintf("(func(%s)%s)!=nil)", o.funcParams(rv1), o.funcReturns(rv1))
 		goto end
 	}
-	if !o.CompareFuncs {
+	if !o.opts.CompareFuncs {
 		goto end
 	}
 end:
