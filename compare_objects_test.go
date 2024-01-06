@@ -16,7 +16,7 @@ type RecurStruct struct {
 	Recur *RecurStruct
 }
 
-func TestDiff(t *testing.T) {
+func TestCompareObjects(t *testing.T) {
 	recurStruct := RecurStruct{}
 	recurStruct.Recur = &recurStruct
 
@@ -92,7 +92,7 @@ func TestDiff(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotDiff := diffator.Diff(tt.v1, tt.v2)
+			gotDiff := diffator.CompareObjects(tt.v1, tt.v2, &diffator.ObjectOpts{})
 			assert.Equalf(t, tt.wantDiff, gotDiff, "Diff(%v, %v)", tt.v1, tt.v2)
 			assert.Equalf(t, tt.wantFailed, gotDiff != "", "Diff(%v, %v)", tt.v1, tt.v2)
 		})

@@ -2,7 +2,10 @@ module github.com/mikeschinkel/go-diffator
 
 go 1.21
 
-require github.com/stretchr/testify v1.8.4
+require (
+	github.com/mikeschinkel/go-lib v0.0.0-20240105150559-6b08a12c3c43
+	github.com/stretchr/testify v1.8.4
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
