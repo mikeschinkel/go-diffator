@@ -97,6 +97,7 @@ func (o *ObjectComparator) ReflectValuesDiff(rv1, rv2 *reflect.Value, format str
 			r := NewReflector(elem1)
 			diff = o.notEqualDiff(elem1.Type(), r.String(), "nil")
 		default:
+			//goland:noinspection GoSwitchMissingCasesForIotaConsts
 			switch rv1.Kind() {
 			case reflect.Pointer:
 				diff = o.ReflectValuesDiff(&elem1, &elem2, "*%s")
@@ -123,6 +124,7 @@ func (o *ObjectComparator) ReflectValuesDiff(rv1, rv2 *reflect.Value, format str
 	case reflect.Slice, reflect.Array:
 		diff := o.diffElements(rv1, rv2)
 		if len(diff) > 0 {
+			//goland:noinspection GoSwitchMissingCasesForIotaConsts
 			switch rv1.Kind() {
 			case reflect.Slice:
 				diff = fmt.Sprintf("%s{%s}", rv1.Type().String(), diff)
